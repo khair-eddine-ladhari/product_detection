@@ -30,8 +30,8 @@ class _LLMOutput(BaseModel):
 
 def _build_llm() -> LLM:
     return LLM(
-        model="groq/qwen/qwen3.6-27b",
-        api_key=os.environ["GROQ_API_KEY"],
+        model="gemini/gemini-3.6-flash",
+        api_key=os.environ["GEMINI_API_KEY"],
         temperature=0.0,
     )
 
