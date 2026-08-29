@@ -7,12 +7,22 @@ Assumes guards/image_check.is_valid() has already passed for this product
 before this module is ever called.
 """
 
+import logging
 import os
+import time
 
 from crewai import Agent, Crew, LLM, Task
+from litellm.exceptions import RateLimitError, Timeout, APIConnectionError
 from pydantic import BaseModel, Field
 
 from models.schemas import Category, ClassificationResult, Product
+
+logging.basicConfig(
+    filename="classification.log",
+    level=logging.INFO,
+
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 
 class _LLMOutput(BaseModel):
@@ -33,6 +43,7 @@ def _build_llm() -> LLM:
         model="gemini/gemini-3.6-flash",
         api_key=os.environ["GEMINI_API_KEY"],
         temperature=0.0,
+        timeout=30,  # يقطع الطلب لو ما رد خلال 30 ثانية
     )
 
 
@@ -77,13 +88,8 @@ def _build_task(agent: Agent, product: Product) -> Task:
     )
 
 
-def classify(product: Product) -> ClassificationResult:
-    """
-    Runs the multimodal agent on a single product and returns a
-    ClassificationResult with the LLM-provided fields filled in.
-    requires_human_review, review_notes, and status are left at their
-    defaults here — verification.py is responsible for setting those.
-    """
+def _classify_once(product: Product) -> ClassificationResult:
+    """Single attempt, no retry logic — kept separate so retry wrapping stays clean."""
     llm = _build_llm()
     agent = _build_agent(llm)
     task = _build_task(agent, product)
@@ -96,3 +102,54 @@ def classify(product: Product) -> ClassificationResult:
         product_id=product.id,
         **llm_output.model_dump(),
     )
+
+
+def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
+    """
+    Runs the multimodal agent on a single product and returns a
+    ClassificationResult with the LLM-provided fields filled in.
+    requires_human_review, review_notes, and status are left at their
+    defaults here — verification.py is responsible for setting those.
+
+    Retries only on RateLimitError, with exponential backoff. Timeout and
+    connection errors are logged and re-raised immediately (retrying won't
+    fix a dead connection or a genuinely slow/broken endpoint the same way
+    it fixes a per-minute quota reset).
+    """
+    for attempt in range(max_retries):
+        try:
+            result = _classify_once(product)
+            logging.info(
+            f"product_id={product.id} CLASSIFICATION_SUCCESS attempt={attempt + 1} "
+            f"flagged={result.flagged} confidence={result.confidence}"
+            )
+            return result
+
+        except RateLimitError:
+            if attempt == max_retries - 1:
+                logging.error(
+                    f"product_id={product.id} FAILED after {max_retries} "
+                    "attempts (rate limit)"
+                )
+                raise
+            wait_time = 2 ** attempt  # 1, 2, 4 seconds
+            logging.warning(
+                f"product_id={product.id} RATE_LIMIT attempt={attempt + 1}, "
+                f"waiting {wait_time}s before retry"
+            )
+            time.sleep(wait_time)
+
+        except Timeout:
+            logging.error(f"product_id={product.id} TIMEOUT")
+            raise
+
+        except APIConnectionError:
+            logging.error(f"product_id={product.id} CONNECTION_ERROR")
+            raise
+
+        except Exception as e:
+            # Anything else (validation errors, auth errors, etc.) — don't
+            # retry, since retrying won't fix a malformed schema or a bad
+            # API key.
+            logging.error(f"product_id={product.id} UNEXPECTED_ERROR: {e}")
+            raise

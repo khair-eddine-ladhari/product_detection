@@ -7,9 +7,17 @@ Each stage passes/returns typed objects from models.schemas — no raw
 dicts or JSON crossing these boundaries (see project notes).
 """
 
+import logging
+
 from agents import classification_agent
 from guards import image_check, verification
 from models.schemas import Category, ClassificationResult, Product, ReviewStatus
+
+logging.basicConfig(
+    filename="classification.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
 
 def _reject_invalid_image(product: Product) -> ClassificationResult:
@@ -18,7 +26,7 @@ def _reject_invalid_image(product: Product) -> ClassificationResult:
     check. Never reaches classification_agent, so there is no LLM cost
     for a broken/empty/corrupted image.
     """
-    return ClassificationResult(
+    result = ClassificationResult(
         product_id=product.id,
         flagged=False,
         category=Category.NONE,
@@ -29,6 +37,11 @@ def _reject_invalid_image(product: Product) -> ClassificationResult:
         review_notes="Rejected before classification: invalid image.",
         status=ReviewStatus.REJECTED_INVALID_IMAGE,
     )
+    logging.info(
+        f"product_id={product.id} PIPELINE_COMPLETE status={result.status} "
+        f"reason=invalid_image"
+    )
+    return result
 
 
 def process_product(product: Product) -> ClassificationResult:
@@ -45,5 +58,11 @@ def process_product(product: Product) -> ClassificationResult:
 
     # 3. Independent, rule-based verification of the LLM's output.
     verified_result = verification.verify(product, llm_result)
+
+    logging.info(
+        f"product_id={product.id} PIPELINE_COMPLETE status={verified_result.status} "
+        f"flagged={verified_result.flagged} "
+        f"requires_review={verified_result.requires_human_review}"
+    )
 
     return verified_result

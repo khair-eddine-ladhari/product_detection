@@ -1,0 +1,32 @@
+2026-08-29 13:32:44,423 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 13:32:58,962 - INFO - product_id=prod_005 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.9
+2026-08-29 13:32:58,962 - INFO - product_id=prod_005 PIPELINE_COMPLETE status=ReviewStatus.FLAGGED_FOR_REVIEW flagged=True requires_review=True
+2026-08-29 14:18:33,569 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 14:18:42,043 - INFO - product_id=prod_005 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.9
+2026-08-29 14:18:42,044 - INFO - product_id=prod_005 PIPELINE_COMPLETE status=ReviewStatus.FLAGGED_FOR_REVIEW flagged=True requires_review=True
+2026-08-29 15:07:15,952 - INFO - product_id=prod_006_invalid PIPELINE_COMPLETE status=ReviewStatus.REJECTED_INVALID_IMAGE reason=invalid_image
+2026-08-29 15:07:18,791 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:07:25,866 - INFO - product_id=prod_002 CLASSIFICATION_SUCCESS attempt=1 flagged=False confidence=0.95
+2026-08-29 15:07:25,866 - INFO - product_id=prod_002 PIPELINE_COMPLETE status=ReviewStatus.APPROVED flagged=False requires_review=False
+2026-08-29 15:07:27,230 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:08:09,641 - INFO - product_id=prod_004 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.95
+2026-08-29 15:08:09,641 - INFO - product_id=prod_004 PIPELINE_COMPLETE status=ReviewStatus.REJECTED_VIOLATION flagged=True requires_review=False
+2026-08-29 15:08:10,887 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:08:23,947 - INFO - product_id=prod_005 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.92
+2026-08-29 15:08:23,947 - INFO - product_id=prod_005 PIPELINE_COMPLETE status=ReviewStatus.FLAGGED_FOR_REVIEW flagged=True requires_review=True
+2026-08-29 15:08:25,453 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:08:31,921 - INFO - product_id=prod_001 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.9
+2026-08-29 15:08:31,922 - INFO - product_id=prod_001 PIPELINE_COMPLETE status=ReviewStatus.REJECTED_VIOLATION flagged=True requires_review=False
+2026-08-29 15:27:33,482 - INFO - product_id=prod_006_invalid PIPELINE_COMPLETE status=ReviewStatus.REJECTED_INVALID_IMAGE reason=invalid_image
+2026-08-29 15:27:36,484 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:27:48,537 - INFO - product_id=prod_002 CLASSIFICATION_SUCCESS attempt=1 flagged=False confidence=0.95
+2026-08-29 15:27:48,538 - INFO - product_id=prod_002 PIPELINE_COMPLETE status=ReviewStatus.APPROVED flagged=False requires_review=False
+2026-08-29 15:27:50,205 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:28:10,153 - INFO - product_id=prod_004 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.92
+2026-08-29 15:28:10,153 - INFO - product_id=prod_004 PIPELINE_COMPLETE status=ReviewStatus.REJECTED_VIOLATION flagged=True requires_review=False
+2026-08-29 15:28:11,425 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:28:43,138 - INFO - product_id=prod_005 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.9
+2026-08-29 15:28:43,138 - INFO - product_id=prod_005 PIPELINE_COMPLETE status=ReviewStatus.FLAGGED_FOR_REVIEW flagged=True requires_review=True
+2026-08-29 15:28:44,700 - INFO - AFC is enabled with max remote calls: 10.
+2026-08-29 15:28:55,378 - INFO - product_id=prod_001 CLASSIFICATION_SUCCESS attempt=1 flagged=True confidence=0.95
+2026-08-29 15:28:55,378 - INFO - product_id=prod_001 PIPELINE_COMPLETE status=ReviewStatus.REJECTED_VIOLATION flagged=True requires_review=False
