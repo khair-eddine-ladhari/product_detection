@@ -12,6 +12,7 @@ import os
 import time
 
 from crewai import Agent, Crew, LLM, Task
+from google.genai.errors import ServerError
 from litellm.exceptions import RateLimitError, Timeout, APIConnectionError
 from pydantic import BaseModel, Field
 
@@ -111,10 +112,11 @@ def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
     requires_human_review, review_notes, and status are left at their
     defaults here — verification.py is responsible for setting those.
 
-    Retries only on RateLimitError, with exponential backoff. Timeout and
-    connection errors are logged and re-raised immediately (retrying won't
-    fix a dead connection or a genuinely slow/broken endpoint the same way
-    it fixes a per-minute quota reset).
+    Retries on RateLimitError and ServerError (e.g. Gemini's "high demand,
+    try again later" 503) with exponential backoff. Timeout and connection
+    errors are logged and re-raised immediately (retrying won't fix a dead
+    connection or a genuinely slow/broken endpoint the same way it fixes a
+    transient capacity/quota issue).
     """
     for attempt in range(max_retries):
         try:
@@ -125,16 +127,16 @@ def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
             )
             return result
 
-        except RateLimitError:
+        except (RateLimitError, ServerError):
             if attempt == max_retries - 1:
                 logging.error(
                     f"product_id={product.id} FAILED after {max_retries} "
-                    "attempts (rate limit)"
+                    "attempts (rate limit / server unavailable)"
                 )
                 raise
             wait_time = 2 ** attempt  # 1, 2, 4 seconds
             logging.warning(
-                f"product_id={product.id} RATE_LIMIT attempt={attempt + 1}, "
+                f"product_id={product.id} TRANSIENT_ERROR attempt={attempt + 1}, "
                 f"waiting {wait_time}s before retry"
             )
             time.sleep(wait_time)
