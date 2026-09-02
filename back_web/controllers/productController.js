@@ -76,3 +76,50 @@ export async function deleteProduct(req, res) {
   if (!product) return res.status(404).json({ error: "Product not found" });
   res.json({ deleted: true });
 }
+
+// PATCH /api/products/:id — seller edits their own listing
+export async function updateProduct(req, res) {
+  const { name, description, imageUrl, price } = req.body;
+
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ error: "Product not found" });
+
+    const needsReclassification =
+      (name !== undefined && name !== product.name) ||
+      (description !== undefined && description !== product.description) ||
+      (imageUrl !== undefined && imageUrl !== product.imageUrl);
+
+    if (name !== undefined) product.name = name;
+    if (description !== undefined) product.description = description;
+    if (imageUrl !== undefined) product.imageUrl = imageUrl;
+    if (price !== undefined) product.price = price;
+
+    if (needsReclassification) {
+      try {
+        const result = await classifyProduct({
+          id: product._id.toString(),
+          name: product.name,
+          description: product.description,
+          imageUrl: product.imageUrl,
+        });
+
+        product.flagged = result.flagged;
+        product.category = result.category;
+        product.textImageMismatch = result.textImageMismatch;
+        product.confidence = result.confidence;
+        product.reasoning = result.reasoning;
+        product.status = statusFromDecision(result);
+        product.classificationError = undefined;
+      } catch (aiErr) {
+        product.status = "review";
+        product.classificationError = aiErr.message;
+      }
+    }
+
+    await product.save();
+    return res.json(product);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}

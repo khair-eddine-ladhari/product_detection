@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getProducts } from "@/app/lib/api";
 
 export default async function StorePage() {
@@ -60,6 +61,12 @@ export default async function StorePage() {
               <p className="mt-1 line-clamp-2 text-sm text-ink/60">
                 {p.description}
               </p>
+              <Link
+                href={`/edit/${p._id}`}
+                className="mt-3 inline-block rounded border border-line px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-line/20"
+              >
+                Edit
+              </Link>
             </div>
           </article>
         ))}

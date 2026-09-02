@@ -13,21 +13,24 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
  * }
  */
 export async function classifyProduct({ id, name, description, imageUrl }) {
-  const { data } = await axios.post(
-    `${AI_SERVICE_URL}/classify`,
-    { id, name, description, image_url: imageUrl },
-    { timeout: 30_000 } // bumped up — first LLM call can be slow (cold start)
-  );
-
-  return {
+  try {
+    const { data } = await axios.post(
+      `${AI_SERVICE_URL}/classify`,
+      { id, name, description, image_url: imageUrl },
+      { timeout: 60_000 }
+    );
+    return { 
     flagged: data.flagged,
     category: data.category,
     textImageMismatch: data.text_image_mismatch,
-    confidence: data.confidence, // numeric 0-1
+    confidence: data.confidence, 
     reasoning: data.reasoning,
     requiresHumanReview: data.requires_human_review,
-    aiStatus: data.status, // whatever back_ai calls it, e.g. "approved"
-  };
+    aiStatus: data.status,  };
+  } catch (err) {
+    console.error("AI service validation error:", err.response?.data);
+    throw err;
+  }
 }
 
 /** Maps the AI service's verdict to a store-facing status. */

@@ -38,3 +38,20 @@ export async function updateProductStatus(id, status) {
   if (!res.ok) throw new Error(`Failed to update product (${res.status})`);
   return res.json();
 }
+
+
+export async function updateProduct(id, payload) {
+  const res = await fetch(`${API_BASE}/api/products/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`Failed to update product (${res.status})`);
+  return res.json();
+}
+
+export async function getProductById(id) {
+  const res = await fetch(`${API_BASE}/api/products/${id}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Failed to load product (${res.status})`);
+  return res.json();
+}

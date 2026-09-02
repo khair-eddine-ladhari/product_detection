@@ -36,7 +36,7 @@ class Product(BaseModel):
     id: str
     name: str
     description: str
-    image_url: HttpUrl
+    image_url: str  
 
 
 class ClassificationResult(BaseModel):
