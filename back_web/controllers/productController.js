@@ -1,0 +1,78 @@
+import Product from "../models/Product.js";
+import { classifyProduct, statusFromDecision } from "../services/aiService.js";
+
+// POST /api/products — create + classify a new product
+export async function createProduct(req, res) {
+  const { name, description, imageUrl, price } = req.body;
+
+  if (!name || !description || !imageUrl) {
+    return res.status(400).json({ error: "name, description and imageUrl are required" });
+  }
+
+  try {
+    const product = await Product.create({ name, description, imageUrl, price });
+
+       try {
+      const result = await classifyProduct({
+        id: product._id.toString(),
+        name,
+        description,
+        imageUrl,
+      });
+
+      product.flagged = result.flagged;
+      product.category = result.category;
+      product.textImageMismatch = result.textImageMismatch;
+      product.confidence = result.confidence;
+      product.reasoning = result.reasoning;
+      product.status = statusFromDecision(result);
+    } catch (aiErr) {
+      product.status = "review";
+      product.classificationError = aiErr.message;
+    }
+
+    await product.save();
+    return res.status(201).json(product);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// GET /api/products/store — only published, storefront-safe products
+export async function getStoreProducts(req, res) {
+  const products = await Product.find({ status: "published" }).sort({ createdAt: -1 });
+  res.json(products);
+}
+
+// GET /api/products — full admin list, optional ?status= filter
+export async function getAllProducts(req, res) {
+  const { status } = req.query;
+  const filter = status ? { status } : {};
+  const products = await Product.find(filter).sort({ createdAt: -1 });
+  res.json(products);
+}
+
+// GET /api/products/:id
+export async function getProductById(req, res) {
+  const product = await Product.findById(req.params.id);
+  if (!product) return res.status(404).json({ error: "Product not found" });
+  res.json(product);
+}
+
+// PATCH /api/products/:id/status — moderator override (approve/reject a "review" item)
+export async function updateProductStatus(req, res) {
+  const { status } = req.body;
+  if (!["published", "rejected", "review"].includes(status)) {
+    return res.status(400).json({ error: "invalid status" });
+  }
+  const product = await Product.findByIdAndUpdate(req.params.id, { status }, { new: true });
+  if (!product) return res.status(404).json({ error: "Product not found" });
+  res.json(product);
+}
+
+// DELETE /api/products/:id
+export async function deleteProduct(req, res) {
+  const product = await Product.findByIdAndDelete(req.params.id);
+  if (!product) return res.status(404).json({ error: "Product not found" });
+  res.json({ deleted: true });
+}
