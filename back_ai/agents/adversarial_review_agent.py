@@ -15,11 +15,13 @@ simply agreeing with itself.
 
 import logging
 import os
+import time
 
 from crewai import Agent, Crew, LLM, Task
 from google.genai.errors import ServerError
 from litellm.exceptions import RateLimitError, Timeout, APIConnectionError
 from pydantic import BaseModel
+from crewai_files import ImageFile
 
 from models.schemas import ClassificationResult, Product
 
@@ -92,15 +94,15 @@ def _build_agent(llm: LLM) -> Agent:
         multimodal=True,
         verbose=False,
     )
-
-
-def _build_task(agent: Agent, product: Product, first_result: ClassificationResult) -> Task:
+def _build_task(agent: Agent, product: Product, first_result: ClassificationResult, image_file: ImageFile) -> Task:
     return Task(
         description=(
             f"Listing under review:\n"
             f"Name: {product.name}\n"
-            f"Description: {product.description}\n"
-            f"Image: {product.image_url}\n\n"
+            f"Description: {product.description}\n\n"
+            "An image of the listed item is attached to this task — "
+            "inspect it directly; don't rely only on the first reviewer's "
+            "description of it.\n\n"
             f"A first reviewer reached this verdict:\n"
             f"flagged={first_result.flagged}, category={first_result.category}, "
             f"confidence={first_result.confidence}, "
@@ -118,20 +120,25 @@ def _build_task(agent: Agent, product: Product, first_result: ClassificationResu
         ),
         agent=agent,
         output_pydantic=_ReviewLLMOutput,
+        input_files={"listing_image": image_file},
     )
 
 
-def review(product: Product, first_result: ClassificationResult, max_retries: int = 3) -> _ReviewLLMOutput:
+def review(
+    product: Product,
+    first_result: ClassificationResult,
+    image_file: ImageFile,
+    max_retries: int = 3,
+) -> _ReviewLLMOutput:
     """
-    Runs the adversarial second-opinion agent. Same retry strategy as
-    classification_agent.classify(): retry transient rate-limit/server
-    errors with backoff, surface timeout/connection errors immediately.
+    Runs the adversarial second-opinion agent, reusing the image_file
+    already fetched once in orchestrator.py rather than re-downloading it.
     """
     for attempt in range(max_retries):
         try:
             llm = _build_llm()
             agent = _build_agent(llm)
-            task = _build_task(agent, product, first_result)
+            task = _build_task(agent, product, first_result, image_file)
 
             Crew(agents=[agent], tasks=[task], verbose=False).kickoff()
 
@@ -154,7 +161,6 @@ def review(product: Product, first_result: ClassificationResult, max_retries: in
                 f"product_id={product.id} SECOND_OPINION_TRANSIENT_ERROR "
                 f"attempt={attempt + 1}, waiting {wait_time}s before retry"
             )
-            import time
             time.sleep(wait_time)
 
         except Timeout:

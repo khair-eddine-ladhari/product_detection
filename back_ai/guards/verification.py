@@ -9,6 +9,8 @@ This is the ONLY place requires_human_review, review_notes, and status
 are ever set (see models/schemas.py).
 """
 
+from crewai_files import ImageFile
+
 from agents import adversarial_review_agent
 from models.schemas import Category, ClassificationResult, Product, ReviewStatus
 
@@ -19,11 +21,20 @@ LOW_CONFIDENCE_THRESHOLD = 0.6
 HIGH_CONFIDENCE_THRESHOLD = 0.85
 
 
-def verify(product: Product, result: ClassificationResult) -> ClassificationResult:
+def verify(
+    product: Product,
+    result: ClassificationResult,
+    image_file: ImageFile,
+) -> ClassificationResult:
     """
     Applies rule-based sanity checks on top of the LLM's ClassificationResult
     and returns an updated copy with requires_human_review, review_notes,
     and status filled in.
+
+    image_file is the same ImageFile already fetched once in
+    orchestrator.py and used by classification_agent.classify() — passed
+    through here so adversarial_review_agent.review() doesn't re-download
+    the image a second/third time.
     """
     notes: list[str] = []
     requires_review = False
@@ -67,8 +78,10 @@ def verify(product: Product, result: ClassificationResult) -> ClassificationResu
     # the first four rules concluded, since two independent reviewers
     # disagreeing is itself the strongest signal that the case is genuinely
     # ambiguous.
+    #
+    # image_file is reused here (not re-fetched) — see orchestrator.py.
     if adversarial_review_agent.should_trigger_review(result):
-        second_opinion = adversarial_review_agent.review(product, result)
+        second_opinion = adversarial_review_agent.review(product, result, image_file)
         if not second_opinion.agrees_with_verdict:
             requires_review = True
             notes.append(

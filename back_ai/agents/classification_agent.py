@@ -9,8 +9,10 @@ before this module is ever called.
 
 import base64
 import logging
+import mimetypes
 import os
 import time
+import urllib.request
 
 from crewai import Agent, Crew, LLM, Task
 from crewai_files import FileBytes, ImageFile
@@ -67,10 +69,36 @@ def _build_agent(llm: LLM) -> Agent:
     )
 
 
+def _fetch_url_bytes(url: str) -> tuple[bytes, str]:
+    """
+    Downloads an image URL ourselves and returns (bytes, extension).
+
+    We do this instead of handing the raw URL to ImageFile/CrewAI, because
+    letting the provider fetch the URL server-side failed silently on URLs
+    without a recognizable image extension (e.g. CDN URLs with query-string
+    params like "...?fmt=auto&h=434&w=652" and no ".jpg"/".png" suffix) —
+    the model proceeded without ever seeing the image and hallucinated a
+    plausible-sounding match to the listing text instead of raising an
+    error, which is much harder to catch than a clear failure here.
+    """
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=15) as response:
+        image_bytes = response.read()
+        content_type = response.headers.get_content_type()  # e.g. "image/jpeg"
+
+    if not image_bytes:
+        raise ValueError(f"Downloaded 0 bytes from image URL: {url}")
+
+    extension = mimetypes.guess_extension(content_type or "") or ".jpg"
+    return image_bytes, extension.lstrip(".")
+
+
 def _image_file_from_source(source: str) -> ImageFile:
     """
     product.image_url may be either:
-      - a real URL (http/https) -> ImageFile accepts this directly
+      - a real URL (http/https) -> we download it ourselves into bytes
+        (see _fetch_url_bytes) rather than trusting provider-side URL
+        fetching, which silently failed on some CDN-style URLs.
       - a data URI (data:image/jpeg;base64,...) -> ImageFile.source does
         NOT accept this format directly (only paths, URLs, or bytes), so
         we decode it ourselves and hand it raw bytes via FileBytes.
@@ -80,7 +108,8 @@ def _image_file_from_source(source: str) -> ImageFile:
     entries from before this fix).
     """
     if source.startswith("http://") or source.startswith("https://"):
-        return ImageFile(source=source)
+        image_bytes, extension = _fetch_url_bytes(source)
+        return ImageFile(source=FileBytes(data=image_bytes, filename=f"listing.{extension}"))
 
     if source.startswith("data:"):
         header, _, encoded = source.partition(",")
@@ -98,8 +127,7 @@ def _image_file_from_source(source: str) -> ImageFile:
         f"{source[:50]}..."
     )
 
-
-def _build_task(agent: Agent, product: Product) -> Task:
+def _build_task(agent: Agent, product: Product, image_file: ImageFile) -> Task:
     return Task(
         description=(
             f"Review this marketplace listing.\n\n"
@@ -119,15 +147,15 @@ def _build_task(agent: Agent, product: Product) -> Task:
         ),
         agent=agent,
         output_pydantic=_LLMOutput,
-        input_files={"listing_image": _image_file_from_source(product.image_url)},
+        input_files={"listing_image": image_file},
     )
 
 
-def _classify_once(product: Product) -> ClassificationResult:
+def _classify_once(product: Product, image_file: ImageFile) -> ClassificationResult:
     """Single attempt, no retry logic — kept separate so retry wrapping stays clean."""
     llm = _build_llm()
     agent = _build_agent(llm)
-    task = _build_task(agent, product)
+    task = _build_task(agent, product, image_file)
 
     Crew(agents=[agent], tasks=[task], verbose=False).kickoff()
 
@@ -139,22 +167,18 @@ def _classify_once(product: Product) -> ClassificationResult:
     )
 
 
-def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
+def classify(product: Product, image_file: ImageFile, max_retries: int = 3) -> ClassificationResult:
     """
     Runs the multimodal agent on a single product and returns a
     ClassificationResult with the LLM-provided fields filled in.
-    requires_human_review, review_notes, and status are left at their
-    defaults here — verification.py is responsible for setting those.
 
-    Retries on RateLimitError and ServerError (e.g. Gemini's "high demand,
-    try again later" 503) with exponential backoff. Timeout and connection
-    errors are logged and re-raised immediately (retrying won't fix a dead
-    connection or a genuinely slow/broken endpoint the same way it fixes a
-    transient capacity/quota issue).
+    image_file is fetched once by the caller (orchestrator.py) and reused
+    here and in adversarial_review_agent.review() — avoids re-downloading
+    the same image multiple times across the pipeline.
     """
     for attempt in range(max_retries):
         try:
-            result = _classify_once(product)
+            result = _classify_once(product, image_file)
             logging.info(
                 f"product_id={product.id} CLASSIFICATION_SUCCESS attempt={attempt + 1} "
                 f"flagged={result.flagged} confidence={result.confidence}"
@@ -168,7 +192,7 @@ def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
                     "attempts (rate limit / server unavailable)"
                 )
                 raise
-            wait_time = 2 ** attempt  # 1, 2, 4 seconds
+            wait_time = 2 ** attempt
             logging.warning(
                 f"product_id={product.id} TRANSIENT_ERROR attempt={attempt + 1}, "
                 f"waiting {wait_time}s before retry"
@@ -184,8 +208,5 @@ def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
             raise
 
         except Exception as e:
-            # Anything else (validation errors, auth errors, etc.) — don't
-            # retry, since retrying won't fix a malformed schema or a bad
-            # API key.
             logging.error(f"product_id={product.id} UNEXPECTED_ERROR: {e}")
             raise

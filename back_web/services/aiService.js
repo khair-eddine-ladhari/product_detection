@@ -17,7 +17,7 @@ export async function classifyProduct({ id, name, description, imageUrl }) {
     const { data } = await axios.post(
       `${AI_SERVICE_URL}/classify`,
       { id, name, description, image_url: imageUrl },
-      { timeout: 60_000 }
+      { timeout: 120_000 }
     );
     return { 
     flagged: data.flagged,
