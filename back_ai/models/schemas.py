@@ -9,7 +9,8 @@ JSON only at true boundaries (LLM call, DB write) — typed objects everywhere i
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
 
 
 class Category(str, Enum):
@@ -33,10 +34,12 @@ class ReviewStatus(str, Enum):
 
 class Product(BaseModel):
     """Input shape: what a 'product' looks like going INTO the pipeline."""
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     id: str
     name: str
     description: str
-    image_url: str  
+    image_url: str
 
 
 class ClassificationResult(BaseModel):
@@ -51,6 +54,8 @@ class ClassificationResult(BaseModel):
            Keeping them separate prevents confusing "something the model said"
            with "something the code decided."
     """
+    model_config = ConfigDict(populate_by_name=True, alias_generator=to_camel)
+
     product_id: str
     flagged: bool
     category: Category

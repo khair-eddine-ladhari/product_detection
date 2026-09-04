@@ -7,11 +7,13 @@ Assumes guards/image_check.is_valid() has already passed for this product
 before this module is ever called.
 """
 
+import base64
 import logging
 import os
 import time
 
 from crewai import Agent, Crew, LLM, Task
+from crewai_files import FileBytes, ImageFile
 from google.genai.errors import ServerError
 from litellm.exceptions import RateLimitError, Timeout, APIConnectionError
 from pydantic import BaseModel, Field
@@ -21,7 +23,6 @@ from models.schemas import Category, ClassificationResult, Product
 logging.basicConfig(
     filename="classification.log",
     level=logging.INFO,
-
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
@@ -66,19 +67,51 @@ def _build_agent(llm: LLM) -> Agent:
     )
 
 
+def _image_file_from_source(source: str) -> ImageFile:
+    """
+    product.image_url may be either:
+      - a real URL (http/https) -> ImageFile accepts this directly
+      - a data URI (data:image/jpeg;base64,...) -> ImageFile.source does
+        NOT accept this format directly (only paths, URLs, or bytes), so
+        we decode it ourselves and hand it raw bytes via FileBytes.
+
+    Without this, a data URI gets misinterpreted as a filesystem path and
+    fails with "File not found" (see classification.log UNEXPECTED_ERROR
+    entries from before this fix).
+    """
+    if source.startswith("http://") or source.startswith("https://"):
+        return ImageFile(source=source)
+
+    if source.startswith("data:"):
+        header, _, encoded = source.partition(",")
+        if not encoded:
+            raise ValueError(f"Malformed data URI for image_url: {source[:50]}...")
+
+        mime_type = header[len("data:"):].split(";")[0]  # e.g. "image/jpeg"
+        extension = mime_type.split("/")[-1] if "/" in mime_type else "jpg"
+
+        image_bytes = base64.b64decode(encoded)
+        return ImageFile(source=FileBytes(data=image_bytes, filename=f"listing.{extension}"))
+
+    raise ValueError(
+        f"Unrecognized image_url format (expected http(s) URL or data URI): "
+        f"{source[:50]}..."
+    )
+
+
 def _build_task(agent: Agent, product: Product) -> Task:
     return Task(
         description=(
             f"Review this marketplace listing.\n\n"
             f"Name: {product.name}\n"
-            f"Description: {product.description}\n"
-            f"Image: {product.image_url}\n\n"
-            "Decide if this listing should be flagged as a weapon or "
-            "counterfeit good. Compare the text against what the image "
-            "actually shows, and set text_image_mismatch=true if they "
-            "disagree (e.g. description says 'toy' but the image shows a "
-            "real firearm). Be conservative: only flag with reasonable "
-            "evidence, and explain your reasoning clearly."
+            f"Description: {product.description}\n\n"
+            "An image of the listed item is attached to this task — "
+            "inspect it directly. Decide if this listing should be "
+            "flagged as a weapon or counterfeit good. Compare the text "
+            "against what the image actually shows, and set "
+            "text_image_mismatch=true if they disagree (e.g. description "
+            "says 'toy' but the image shows a real firearm). Be "
+            "conservative: only flag with reasonable evidence."
         ),
         expected_output=(
             "A structured classification: flagged, category, confidence, "
@@ -86,6 +119,7 @@ def _build_task(agent: Agent, product: Product) -> Task:
         ),
         agent=agent,
         output_pydantic=_LLMOutput,
+        input_files={"listing_image": _image_file_from_source(product.image_url)},
     )
 
 
@@ -122,8 +156,8 @@ def classify(product: Product, max_retries: int = 3) -> ClassificationResult:
         try:
             result = _classify_once(product)
             logging.info(
-            f"product_id={product.id} CLASSIFICATION_SUCCESS attempt={attempt + 1} "
-            f"flagged={result.flagged} confidence={result.confidence}"
+                f"product_id={product.id} CLASSIFICATION_SUCCESS attempt={attempt + 1} "
+                f"flagged={result.flagged} confidence={result.confidence}"
             )
             return result
 

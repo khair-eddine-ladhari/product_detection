@@ -1,13 +1,15 @@
 """
 Independent check on the LLM's classification output. This does not re-run
-the LLM — it applies plain code rules to catch cases where the model's
-output is internally inconsistent, under-confident, or otherwise needs a
-human to look at it.
+the LLM (except for one deliberate, targeted case — see Rule 5) — it mostly
+applies plain code rules to catch cases where the model's output is
+internally inconsistent, under-confident, or otherwise needs a human to
+look at it.
 
 This is the ONLY place requires_human_review, review_notes, and status
 are ever set (see models/schemas.py).
 """
 
+from agents import adversarial_review_agent
 from models.schemas import Category, ClassificationResult, Product, ReviewStatus
 
 # Below this confidence, even a "not flagged" result gets a second look.
@@ -57,6 +59,22 @@ def verify(product: Product, result: ClassificationResult) -> ClassificationResu
         notes.append(
             f"Not flagged, but category is {result.category.value} — inconsistent output."
         )
+
+    # Rule 5: adversarial second opinion. Only triggered for verdicts that
+    # are already borderline (see should_trigger_review) — running this on
+    # every listing would double LLM cost for no benefit on clear-cut cases.
+    # A disagreeing second opinion forces human review regardless of what
+    # the first four rules concluded, since two independent reviewers
+    # disagreeing is itself the strongest signal that the case is genuinely
+    # ambiguous.
+    if adversarial_review_agent.should_trigger_review(result):
+        second_opinion = adversarial_review_agent.review(product, result)
+        if not second_opinion.agrees_with_verdict:
+            requires_review = True
+            notes.append(
+                f"Second opinion disagreed with the verdict: "
+                f"{second_opinion.counter_reasoning}"
+            )
 
     # Decide final status.
     if requires_review:

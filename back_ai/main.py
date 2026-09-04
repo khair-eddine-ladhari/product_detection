@@ -28,7 +28,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.post("/classify", response_model=ClassificationResult)
+@app.post("/classify", response_model=ClassificationResult, response_model_by_alias=True)
 def classify(product: Product) -> ClassificationResult:
     """
     Runs a single product through the full pipeline. FastAPI validates the
