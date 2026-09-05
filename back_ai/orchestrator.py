@@ -59,6 +59,8 @@ def process_product(product: Product) -> ClassificationResult:
     verified ClassificationResult.
     """
     # 1. Cheap technical check, no LLM cost.
+    print(f"DEBUG incoming product: {product.model_dump()!r}", flush=True)
+    
     if not image_check.is_valid(str(product.image_url)):
         return _reject_invalid_image(product)
 

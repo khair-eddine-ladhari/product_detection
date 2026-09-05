@@ -17,22 +17,22 @@ export async function classifyProduct({ id, name, description, imageUrl }) {
     const { data } = await axios.post(
       `${AI_SERVICE_URL}/classify`,
       { id, name, description, image_url: imageUrl },
-      { timeout: 120_000 }
+      { timeout: 180_000 }
     );
     return { 
-    flagged: data.flagged,
-    category: data.category,
-    textImageMismatch: data.text_image_mismatch,
-    confidence: data.confidence, 
-    reasoning: data.reasoning,
-    requiresHumanReview: data.requires_human_review,
-    aiStatus: data.status,  };
+      flagged: data.flagged,
+      category: data.category,
+      textImageMismatch: data.textImageMismatch,
+      confidence: data.confidence, 
+      reasoning: data.reasoning,
+      requiresHumanReview: data.requiresHumanReview,
+      aiStatus: data.status,
+    };
   } catch (err) {
     console.error("AI service validation error:", err.response?.data);
     throw err;
   }
 }
-
 /** Maps the AI service's verdict to a store-facing status. */
 export function statusFromDecision({ flagged, requiresHumanReview }) {
   if (requiresHumanReview) return "review";

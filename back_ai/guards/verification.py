@@ -20,6 +20,29 @@ LOW_CONFIDENCE_THRESHOLD = 0.6
 # Flagged results below this confidence are not auto-rejected outright.
 HIGH_CONFIDENCE_THRESHOLD = 0.85
 
+# Keywords that, if present anywhere in the listing text, force human
+# review regardless of what the LLM concluded — a deterministic, code-only
+# check that can't be reasoned around the way an LLM's own judgment can.
+# Intentionally includes common misspellings/leetspeak sellers might use
+# to dodge the classifier (e.g. "weapen", "wepon").
+SUSPICIOUS_KEYWORDS = [
+    # Weapon-related
+    "weapon", "weapen", "wepon", "gun", "pistol", "rifle", "knife",
+    "blade", "firearm", "ammo", "ammunition",
+    # Counterfeit-related
+    "replica", "fake", "counterfeit", "knockoff", "knock-off",
+    "1:1", "aaa quality", "mirror quality", "unauthorized copy",
+]
+
+
+def _contains_suspicious_keyword(product: Product) -> str | None:
+    text = f"{product.name} {product.description}".lower()
+    print(f"DEBUG keyword check text: {text!r}", flush=True)
+    for keyword in SUSPICIOUS_KEYWORDS:
+        if keyword in text:
+            print(f"DEBUG matched keyword: {keyword!r}", flush=True)
+            return keyword
+    return None
 
 def verify(
     product: Product,
@@ -43,6 +66,16 @@ def verify(
     if result.text_image_mismatch:
         requires_review = True
         notes.append("Text and image appear to disagree.")
+
+    # Rule 1b: deterministic keyword check on the raw text, independent of
+    # the LLM's own text_image_mismatch judgment. Catches cases where the
+    # LLM decides a weapon/counterfeit-related word in the title isn't
+    # "mismatched" enough given a clean-looking image, but the word itself
+    # is still a red flag worth a human looking at regardless.
+    matched_keyword = _contains_suspicious_keyword(product)
+    if matched_keyword:
+        requires_review = True
+        notes.append(f"Listing text contains flagged keyword: '{matched_keyword}'.")
 
     # Rule 2: a flagged result should never be trusted if the model is unsure.
     if result.flagged and result.confidence < HIGH_CONFIDENCE_THRESHOLD:
