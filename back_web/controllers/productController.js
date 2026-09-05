@@ -1,18 +1,30 @@
 import Product from "../models/Product.js";
 import { classifyProduct, statusFromDecision } from "../services/aiService.js";
 
+/**
+ * Converts a multer in-memory uploaded file into a base64 data URI, which
+ * is exactly the format classification_agent.py's _image_file_from_source()
+ * already knows how to decode (see the "data:" branch there) — no changes
+ * needed on the Python side.
+ */
+function fileToDataUri(file) {
+  const base64 = file.buffer.toString("base64");
+  return `data:${file.mimetype};base64,${base64}`;
+}
+
 // POST /api/products — create + classify a new product
 export async function createProduct(req, res) {
-  const { name, description, imageUrl, price } = req.body;
+  const { name, description, price } = req.body;
+  const imageUrl = req.file ? fileToDataUri(req.file) : req.body.imageUrl;
 
   if (!name || !description || !imageUrl) {
-    return res.status(400).json({ error: "name, description and imageUrl are required" });
+    return res.status(400).json({ error: "name, description and image are required" });
   }
 
   try {
     const product = await Product.create({ name, description, imageUrl, price });
 
-       try {
+    try {
       const result = await classifyProduct({
         id: product._id.toString(),
         name,
@@ -79,7 +91,8 @@ export async function deleteProduct(req, res) {
 
 // PATCH /api/products/:id — seller edits their own listing
 export async function updateProduct(req, res) {
-  const { name, description, imageUrl, price } = req.body;
+  const { name, description, price } = req.body;
+  const uploadedImageUrl = req.file ? fileToDataUri(req.file) : req.body.imageUrl;
 
   try {
     const product = await Product.findById(req.params.id);
@@ -88,11 +101,11 @@ export async function updateProduct(req, res) {
     const needsReclassification =
       (name !== undefined && name !== product.name) ||
       (description !== undefined && description !== product.description) ||
-      (imageUrl !== undefined && imageUrl !== product.imageUrl);
+      (uploadedImageUrl !== undefined && uploadedImageUrl !== product.imageUrl);
 
     if (name !== undefined) product.name = name;
     if (description !== undefined) product.description = description;
-    if (imageUrl !== undefined) product.imageUrl = imageUrl;
+    if (uploadedImageUrl !== undefined) product.imageUrl = uploadedImageUrl;
     if (price !== undefined) product.price = price;
 
     if (needsReclassification) {

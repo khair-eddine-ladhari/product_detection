@@ -7,6 +7,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
  *   POST  /api/products                 (create + trigger AI classification)
  *   PATCH /api/products/:id             (admin override of status)
  * If your routes differ, only this file needs to change.
+ *
+ * createProduct and updateProduct now send FormData (name, description,
+ * price, and an "image" file field) instead of JSON, since the backend
+ * uses multer to accept an actual uploaded image file. Do NOT set
+ * Content-Type manually for FormData requests — the browser sets the
+ * correct "multipart/form-data; boundary=..." header automatically, and
+ * setting it by hand breaks the boundary.
  */
 
 export async function getProducts(status) {
@@ -19,11 +26,10 @@ export async function getProducts(status) {
   return res.json();
 }
 
-export async function createProduct(payload) {
+export async function createProduct(formData) {
   const res = await fetch(`${API_BASE}/api/products`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: formData,
   });
   if (!res.ok) throw new Error(`Failed to create product (${res.status})`);
   return res.json();
@@ -39,12 +45,10 @@ export async function updateProductStatus(id, status) {
   return res.json();
 }
 
-
-export async function updateProduct(id, payload) {
+export async function updateProduct(id, formData) {
   const res = await fetch(`${API_BASE}/api/products/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: formData,
   });
   if (!res.ok) throw new Error(`Failed to update product (${res.status})`);
   return res.json();

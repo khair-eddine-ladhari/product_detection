@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const initialForm = { name: "", description: "", imageUrl: "", price: "" };
+const initialForm = { name: "", description: "", price: "" };
 
 const statusCopy = {
   published: {
@@ -34,17 +34,26 @@ export default function ProductForm({
       ? {
           name: initialData.name ?? "",
           description: initialData.description ?? "",
-          imageUrl: initialData.imageUrl ?? "",
           price: initialData.price ?? "",
         }
       : initialForm
   );
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(initialData?.imageUrl ?? null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  }
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    if (file) {
+      setImagePreview(URL.createObjectURL(file));
+    }
   }
 
   async function handleSubmit(e) {
@@ -54,12 +63,28 @@ export default function ProductForm({
     setResult(null);
 
     try {
-      const saved = await onSubmit({
-        ...form,
-        price: Number(form.price) || 0,
-      });
+      // On create, an image is required. On edit, an existing image already
+      // on file is fine — imageFile only needs to be set if the seller is
+      // changing it.
+      if (!initialData && !imageFile) {
+        throw new Error("Please choose an image.");
+      }
+
+      const formData = new FormData();
+      formData.append("name", form.name);
+      formData.append("description", form.description);
+      formData.append("price", Number(form.price) || 0);
+      if (imageFile) {
+        formData.append("image", imageFile); // must match upload.single("image") on the backend
+      }
+
+      const saved = await onSubmit(formData);
       setResult(saved);
-      if (!initialData) setForm(initialForm);
+      if (!initialData) {
+        setForm(initialForm);
+        setImageFile(null);
+        setImagePreview(null);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -105,22 +130,27 @@ export default function ProductForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium" htmlFor="imageUrl">
-            Image URL
+          <label className="block text-sm font-medium" htmlFor="image">
+            Item photo
           </label>
           <input
-            id="imageUrl"
-            required
-            type="url"
-            value={form.imageUrl}
-            onChange={update("imageUrl")}
+            id="image"
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
             className="mt-1 w-full rounded border border-line bg-white px-3 py-2 text-sm focus:border-moss focus:outline-none"
-            placeholder="https://…"
           />
           <p className="mt-1 text-xs text-ink/50">
-            Use a direct image link (no redirects) — some hosts break
-            automatic review.
+            Upload a clear photo of the actual item.
+            {initialData ? " Leave empty to keep the current photo." : ""}
           </p>
+          {imagePreview && (
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="mt-2 h-32 w-32 rounded border border-line object-cover"
+            />
+          )}
         </div>
 
         <div>
