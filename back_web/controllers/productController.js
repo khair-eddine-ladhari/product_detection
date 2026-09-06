@@ -1,27 +1,36 @@
 import Product from "../models/Product.js";
 import { classifyProduct, statusFromDecision } from "../services/aiService.js";
+import cloudinary from "../config/cloudinary.js";
 
 /**
- * Converts a multer in-memory uploaded file into a base64 data URI, which
- * is exactly the format classification_agent.py's _image_file_from_source()
- * already knows how to decode (see the "data:" branch there) — no changes
- * needed on the Python side.
+ * Uploads a multer in-memory file buffer to Cloudinary and returns the
+ * hosted URL. Replaces the previous base64-data-URI approach — images are
+ * now stored on Cloudinary's CDN instead of as base64 blobs in MongoDB.
  */
-function fileToDataUri(file) {
-  const base64 = file.buffer.toString("base64");
-  return `data:${file.mimetype};base64,${base64}`;
+function uploadToCloudinary(file) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: "image", folder: "product-listings" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result.secure_url);
+      }
+    );
+    stream.end(file.buffer);
+  });
 }
 
 // POST /api/products — create + classify a new product
 export async function createProduct(req, res) {
   const { name, description, price } = req.body;
-  const imageUrl = req.file ? fileToDataUri(req.file) : req.body.imageUrl;
-
-  if (!name || !description || !imageUrl) {
-    return res.status(400).json({ error: "name, description and image are required" });
-  }
 
   try {
+    const imageUrl = req.file ? await uploadToCloudinary(req.file) : req.body.imageUrl;
+
+    if (!name || !description || !imageUrl) {
+      return res.status(400).json({ error: "name, description and image are required" });
+    }
+
     const product = await Product.create({ name, description, imageUrl, price });
 
     try {
@@ -92,11 +101,12 @@ export async function deleteProduct(req, res) {
 // PATCH /api/products/:id — seller edits their own listing
 export async function updateProduct(req, res) {
   const { name, description, price } = req.body;
-  const uploadedImageUrl = req.file ? fileToDataUri(req.file) : req.body.imageUrl;
 
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found" });
+
+    const uploadedImageUrl = req.file ? await uploadToCloudinary(req.file) : req.body.imageUrl;
 
     const needsReclassification =
       (name !== undefined && name !== product.name) ||
