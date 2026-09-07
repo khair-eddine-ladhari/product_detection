@@ -18,7 +18,7 @@ import {
 
 const router = Router();
 
-router.post("/", upload.single("image"), createProduct);
+
 router.get("/store", getStoreProducts);
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);
