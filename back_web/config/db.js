@@ -1,11 +1,14 @@
+import dns from "dns";
 import mongoose from "mongoose";
 
-export async function connectDB(uri) {
+dns.setServers(["8.8.8.8", "8.8.4.4"]);
+
+export async function connectDB() {
   try {
-    await mongoose.connect(uri);
-    console.log("[db] connected to MongoDB");
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("[db] connected");
   } catch (err) {
-    console.error("[db] connection failed:", err.message);
-    process.exit(1);
+    console.error(`[db] connection failed: ${err.message}`);
+    throw err;
   }
 }

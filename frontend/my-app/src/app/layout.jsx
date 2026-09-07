@@ -8,26 +8,26 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-paper text-ink">
-        <header className="border-b border-line">
-          <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-            <a href="/" className="text-lg font-semibold tracking-tight">
+      <body className="min-h-screen bg-white text-black">
+        <header className="border-b border-black/10">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 sm:px-10">
+            <a href="/" className="text-[13px] font-medium uppercase tracking-[0.25em] text-black">
               The Yard
             </a>
-            <nav className="flex gap-6 text-sm">
-              <a href="/" className="hover:text-moss">
+            <nav className="flex gap-7 text-[12px] uppercase tracking-[0.1em] text-black/60">
+              <a href="/" className="transition-colors hover:text-black">
                 Store
               </a>
-              <a href="/upload" className="hover:text-moss">
+              <a href="/upload" className="transition-colors hover:text-black">
                 Sell an item
               </a>
-              <a href="/review" className="hover:text-moss">
+              <a href="/review" className="transition-colors hover:text-black">
                 Review queue
               </a>
             </nav>
           </div>
         </header>
-        <main className="mx-auto max-w-5xl px-6 py-10">{children}</main>
+        <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10">{children}</main>
       </body>
     </html>
   );

@@ -7,19 +7,19 @@ const initialForm = { name: "", description: "", price: "" };
 const statusCopy = {
   published: {
     label: "Live in the store",
-    tone: "text-moss border-moss/30 bg-moss/5",
+    dot: "bg-black",
   },
   review: {
     label: "Held for human review",
-    tone: "text-amber border-amber/30 bg-amber/5",
+    dot: "bg-black/50",
   },
   rejected: {
     label: "Rejected",
-    tone: "text-clay border-clay/30 bg-clay/5",
+    dot: "bg-black/30",
   },
   pending: {
     label: "Pending",
-    tone: "text-ink/60 border-line bg-white",
+    dot: "bg-black/30",
   },
 };
 
@@ -96,12 +96,9 @@ export default function ProductForm({
 
   return (
     <div className="max-w-prose">
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-5 rounded border border-line bg-white p-4"
-      >
+      <form onSubmit={handleSubmit} className="space-y-6 bg-white">
         <div>
-          <label className="block text-sm font-medium" htmlFor="name">
+          <label className="text-[13px] font-medium text-black" htmlFor="name">
             Item name
           </label>
           <input
@@ -109,13 +106,13 @@ export default function ProductForm({
             required
             value={form.name}
             onChange={update("name")}
-            className="mt-1 w-full rounded border border-line bg-white px-3 py-2 text-sm focus:border-moss focus:outline-none"
+            className="mt-1.5 w-full border-0 border-b border-black/15 bg-white px-0 py-2 text-sm text-black placeholder:text-black/30 focus:border-black focus:outline-none"
             placeholder="Outdoor camping tool"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium" htmlFor="description">
+          <label className="text-[13px] font-medium text-black" htmlFor="description">
             Description
           </label>
           <textarea
@@ -124,13 +121,13 @@ export default function ProductForm({
             rows={4}
             value={form.description}
             onChange={update("description")}
-            className="mt-1 w-full rounded border border-line bg-white px-3 py-2 text-sm focus:border-moss focus:outline-none"
+            className="mt-1.5 w-full border-0 border-b border-black/15 bg-white px-0 py-2 text-sm text-black placeholder:text-black/30 focus:border-black focus:outline-none"
             placeholder="What is it, what's it made of, what condition is it in?"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium" htmlFor="image">
+          <label className="text-[13px] font-medium text-black" htmlFor="image">
             Item photo
           </label>
           <input
@@ -138,9 +135,9 @@ export default function ProductForm({
             type="file"
             accept="image/*"
             onChange={handleFileChange}
-            className="mt-1 w-full rounded border border-line bg-white px-3 py-2 text-sm focus:border-moss focus:outline-none"
+            className="mt-1.5 w-full text-sm text-black file:mr-3 file:border file:border-black/15 file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:text-black hover:file:border-black"
           />
-          <p className="mt-1 text-xs text-ink/50">
+          <p className="mt-1.5 text-xs text-black/40">
             Upload a clear photo of the actual item.
             {initialData ? " Leave empty to keep the current photo." : ""}
           </p>
@@ -148,13 +145,13 @@ export default function ProductForm({
             <img
               src={imagePreview}
               alt="Preview"
-              className="mt-2 h-32 w-32 rounded border border-line object-cover"
+              className="mt-3 h-32 w-32 object-cover"
             />
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium" htmlFor="price">
+          <label className="text-[13px] font-medium text-black" htmlFor="price">
             Price ($)
           </label>
           <input
@@ -165,37 +162,40 @@ export default function ProductForm({
             step="0.01"
             value={form.price}
             onChange={update("price")}
-            className="mt-1 w-40 rounded border border-line bg-white px-3 py-2 text-sm focus:border-moss focus:outline-none"
+            className="mt-1.5 w-40 border-0 border-b border-black/15 bg-white px-0 py-2 text-sm text-black focus:border-black focus:outline-none"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting}
-          className="rounded bg-mossDeep px-4 py-1.5 text-sm font-medium text-paper hover:bg-moss disabled:opacity-50"
+          className="border border-black bg-black px-6 py-2 text-[13px] uppercase tracking-[0.1em] text-white transition-opacity hover:opacity-80 disabled:opacity-40"
         >
           {submitting ? submittingLabel : submitLabel}
         </button>
       </form>
 
       {error && (
-        <div className="mt-6 rounded border border-clay/30 bg-clay/5 px-4 py-3 text-sm text-clay">
+        <div className="mt-6 border border-black/15 px-4 py-3 text-sm text-black">
           Something went wrong: {error}
         </div>
       )}
 
       {result && (
-        <div className={`mt-6 rounded border px-4 py-3 text-sm ${status.tone}`}>
-          <p className="font-medium">{status.label}</p>
-          {result.reasoning && (
-            <p className="mt-1 text-ink/70">{result.reasoning}</p>
-          )}
-          {result.classificationError && (
-            <p className="mt-1 text-ink/70">
-              Review check failed ({result.classificationError}) — a person
-              will take a look.
-            </p>
-          )}
+        <div className="mt-6 flex items-start gap-2 border border-black/15 px-4 py-3 text-sm text-black">
+          <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${status.dot}`} />
+          <div>
+            <p className="font-medium">{status.label}</p>
+            {result.reasoning && (
+              <p className="mt-1 text-black/50">{result.reasoning}</p>
+            )}
+            {result.classificationError && (
+              <p className="mt-1 text-black/50">
+                Review check failed ({result.classificationError}) — a person
+                will take a look.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>
