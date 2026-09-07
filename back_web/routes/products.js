@@ -1,6 +1,6 @@
 // server/src/routes/products.js
 import { Router } from "express";
-import multer from "multer";
+
 import {
   createProduct,
   getStoreProducts,
@@ -14,10 +14,7 @@ import {
 // Store the upload in memory (as a Buffer) — we only need it briefly to
 // convert to a base64 data URI in the controller, not to keep as a file
 // on disk.
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB cap, adjust as needed
-});
+
 
 const router = Router();
 
