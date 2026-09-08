@@ -2,7 +2,6 @@ pydantic>=2.0
 httpx
 pillow
 crewai
-crewai-files
 google-genai
 litellm
 python-dotenv
