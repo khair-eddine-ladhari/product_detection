@@ -1,5 +1,6 @@
 // server/src/routes/products.js
 import { Router } from "express";
+import multer from "multer";
 
 import {
   createProduct,
@@ -14,14 +15,14 @@ import {
 // Store the upload in memory (as a Buffer) — we only need it briefly to
 // convert to a base64 data URI in the controller, not to keep as a file
 // on disk.
-
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
-
 
 router.get("/store", getStoreProducts);
 router.get("/", getAllProducts);
 router.get("/:id", getProductById);
+router.post("/", upload.single("image"), createProduct);
 router.patch("/:id/status", updateProductStatus);
 router.delete("/:id", deleteProduct);
 
