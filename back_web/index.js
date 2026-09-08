@@ -10,7 +10,21 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || "http://localhost:3000" }));
+const allowedOrigins = [
+  process.env.CLIENT_ORIGIN || "http://localhost:3000",
+  "https://productdetection.vercel.app",
+  /^https:\/\/productdetection-[a-z0-9]+-bahawebsite-s-projects\.vercel\.app$/,
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow non-browser requests (curl, server-to-server, health checks)
+    const isAllowed = allowedOrigins.some((allowed) =>
+      typeof allowed === "string" ? allowed === origin : allowed.test(origin)
+    );
+    callback(isAllowed ? null : new Error("Not allowed by CORS"), isAllowed);
+  },
+}));
 app.use(express.json());
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
